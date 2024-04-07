@@ -1,0 +1,112 @@
+name: Compress Binaries
+on:
+  schedule:
+    - cron: '0 0/1 * * *'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      REPO_AGH: "AdguardTeam/AdGuardHome"
+      # TODO: If you have forked ot copied this code you need to change to your repository here.
+      REPO_SMALL_AGH: "lwbt/agh_build_test"
+      GIT_USER_NAME: "lwbt"
+      GIT_USER_EMAIL: "lwbt_pipeline@github.com"
+    strategy:
+      matrix:
+        go-version: [stable]
+        os: [linux]
+        platform: [arm, arm64, mips]
+    steps:
+      - name: Get latest AdGuard Home tag
+        run: |
+          latest_tag=$(
+            curl -s "https://api.github.com/repos/${{ env.REPO_AGH }}/releases/latest" \
+            | grep -oP '"tag_name": "\K(.*)(?=")'
+          )
+          echo "TAG=$latest_tag" >> $GITHUB_ENV
+          echo "Latest AdGuard Home Tag: $latest_tag"
+      - name: Get latest AdGuard Home Small tag
+        run: |
+          latest_tag=$(
+            curl -s "https://api.github.com/repos/${{ env.REPO_SMALL_AGH }}/releases/latest" \
+            | grep -oP '"tag_name": "\K(.*)(?=")' || echo ""
+          )
+          echo "TAG_SMALL=$latest_tag" >> $GITHUB_ENV
+          echo "Latest AdGuard Home Small Tag: $latest_tag"
+      - name: Checkout AdGuard Home Small code
+        if: env.TAG_SMALL != env.TAG
+        uses: actions/checkout@v4
+        with:
+          path: tools
+      - name: Get UPX latest version
+        if: env.TAG_SMALL != env.TAG
+        id: get-upx-version
+        run: |
+          echo "UPX_VERSION=$(
+            curl -s https://api.github.com/repos/upx/upx/releases/latest \
+            | jq -r '.tag_name' \
+            | cut -c 2-
+          )" >> $GITHUB_ENV
+      - name: Download UPX
+        if: env.TAG_SMALL != env.TAG
+        run: |
+          wget -q "https://github.com/upx/upx/releases/download/v${{ env.UPX_VERSION }}/upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz"
+          tar --to-stdout -xf "upx-${{ env.UPX_VERSION }}-amd64_linux.tar.xz" \
+            "upx-${{ env.UPX_VERSION }}-amd64_linux/upx" > "${PWD}/upx"
+          chmod -v +x "${PWD}/upx"
+      - name: Download AdGuard Home ${{ matrix.os }} ${{ matrix.platform }} and compress with UPX
+        if: env.TAG_SMALL != env.TAG
+        run: |
+          if [[ "${{ matrix.platform }}" == "amd64" ]]; then
+              DL_ARCH="${{ matrix.platform }}"
+          elif [[ "${{ matrix.platform }}" == "arm" ]]; then
+              DL_ARCH="${{ matrix.platform }}v7"
+          elif [[ "${{ matrix.platform }}" == "arm64" ]]; then
+              DL_ARCH="${{ matrix.platform }}"
+          elif [[ "${{ matrix.platform }}" == "mips" ]]; then
+              DL_ARCH="${{ matrix.platform }}_softfloat"
+          fi
+          wget -q "https://github.com/AdguardTeam/AdGuardHome/releases/download/${{ env.TAG }}/AdGuardHome_${{ matrix.os }}_${DL_ARCH}.tar.gz"
+          tar --to-stdout -xf "AdGuardHome_${{ matrix.os }}_${DL_ARCH}.tar.gz" \
+            "./AdGuardHome/AdGuardHome" > "AdGuardHome_${{ matrix.os }}_${DL_ARCH}"
+          rm -v "AdGuardHome_${{ matrix.os }}_${DL_ARCH}.tar.gz"
+          chmod +x "AdGuardHome_${{ matrix.os }}_${DL_ARCH}"
+          "${PWD}/upx" --lzma --best --no-progress "AdGuardHome_${{ matrix.os }}_${DL_ARCH}"
+          sha256sum "AdGuardHome_${{ matrix.os }}_${DL_ARCH}" > "AdGuardHome_${{ matrix.os }}_${DL_ARCH}.sha256"
+      - name: Create tag in AdGuard Home Small repository
+        if: env.TAG_SMALL != env.TAG
+        run: |
+          cd tools
+          if git rev-parse --quiet --verify "refs/tags/${{ env.TAG }}"; then
+            echo "Tag already exists"
+            exit 0
+          else
+            echo "Tag does not exist, creating"
+            git config --global user.email "${{ env.GIT_USER_EMAIL }}"
+            git config --global user.name "${{ env.GIT_USER_NAME }}"
+            git tag "${{ env.TAG }}"
+            git push --tags
+          fi
+      - name: Create Release
+        if: env.TAG_SMALL != env.TAG
+        uses: ncipollo/release-action@v1
+        with:
+          name: Small AdGuard Home ${{ env.TAG }}
+          tag: ${{ env.TAG }}
+          body: |
+            Small AdGuard Home build ${{ env.TAG }}
+
+            For a complete changelog go to https://github.com/${{ env.REPO_AGH }}/releases/tag/${{ env.TAG }}
+
+            This release was created by:
+
+            * Fetching a binary from upstream
+            * Compressing the binary with UPX
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: false
+          allowupdates: true
+          replacesartifacts: true
+          artifacts: |
+            AdGuardHome_${{ matrix.os }}_*
