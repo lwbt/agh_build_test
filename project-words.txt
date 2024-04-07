@@ -1,0 +1,26 @@
+# AsciiDoc
+toclevels
+adoc
+
+# Names
+Adguard
+Chezmoi
+Syncthing
+Tailscale
+github
+lwbt
+tailscale
+tailscaled
+
+# YAML
+GITHUB
+GOARCH
+allowupdates
+elif
+goreleaser
+linux
+lzma
+mips
+ncipollo
+replacesartifacts
+softfloat

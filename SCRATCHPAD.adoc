@@ -1,0 +1,24 @@
+= Small AdGuard Home Builds -- Scratchpad
+:hide-uri-scheme:
+// Enable keyboard macros
+:experimental:
+:toc:
+:toclevels: 4
+:icons: font
+:note-caption: ℹ️
+:tip-caption: 💡
+:warning-caption: ⚠️
+:caution-caption: 🔥
+:important-caption: ❗
+
+== AdGuard Home
+
+https://github.com/AdguardTeam/AdGuardHome/tree/master
+
+* [x] download
+* [x] compress with upx
+* [x] checkout repo and tag repo
+* [x] publish packages
+* [x] add license file to source
+* [x] add checksums
+* remove older releases?
