@@ -1,7 +1,7 @@
 name: Compress Binaries
 on:
   schedule:
-    - cron: '0 0/1 * * *'
+    - cron: '0 0/6 * * *'
   workflow_dispatch:
 env:
   SOFTWARE_NAME: "AdGuard Home"
