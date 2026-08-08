@@ -126,7 +126,7 @@ jobs:
         run: |
           sha256sum "${{ env.FILE_NAME }}-"* > "checksums.txt"
       - name: Checkout ${{ env.SOFTWARE_NAME }} Small repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: tools
       - name: Create tag in ${{ env.SOFTWARE_NAME }} Small repository
